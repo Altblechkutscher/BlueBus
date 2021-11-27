@@ -475,20 +475,30 @@ static void BMBTMenuDashboardUpdateOBCValues(BMBTContext_t *context)
                 cooltemp = (cooltemp * 1.8 + 32 + 0.5);
             }
         }
-
-        snprintf(ambtempstr, 7, "A:%+d", ambtemp);
-        if (cooltemp > 0) { 
-            snprintf(cooltempstr, 8, "C:%d, ", cooltemp);
-        }
-        if (oiltemp > 0) {
-            snprintf(oiltempstr, 8, "O:%d, ", oiltemp);
-        }
-        char temperature[29] = {0};
-
-        snprintf(temperature, 29, "Temp: %s%s%s\xB0%c", oiltempstr, cooltempstr, ambtempstr, tempUnit);
         if (context->ibus->gtVersion == IBUS_GT_MKIV_STATIC) {
+            snprintf(ambtempstr, 7, "A: %+d", ambtemp);
+            if (cooltemp > 0) { 
+                snprintf(cooltempstr, 8, "C: %d, ", cooltemp);
+            }
+            if (oiltemp > 0) {
+                snprintf(oiltempstr, 8, "O: %d, ", oiltemp);
+            }
+            char temperature[29] = {0};
+    
+            snprintf(temperature, 29, "Temps (\xB0%c): %s%s%s", oiltempstr, cooltempstr, ambtempstr, tempUnit);
             IBusCommandGTWriteIndexStatic(context->ibus, 0x45, temperature);
         } else {
+            snprintf(ambtempstr, 7, "A:%+d", ambtemp);
+            if (cooltemp > 0) { 
+                snprintf(cooltempstr, 8, "C:%d, ", cooltemp);
+            }
+            if (oiltemp > 0) {
+                snprintf(oiltempstr, 8, "O:%d, ", oiltemp);
+            }
+            char temperature[29] = {0};
+    
+            snprintf(temperature, 29, "Temps (\xB0%c): %s%s%s", oiltempstr, cooltempstr, ambtempstr, tempUnit);
+            IBusCommandGTWriteIndexStatic(context->ibus, 0x45, temperature);
             IBusCommandGTWriteIndex(context->ibus, 4, temperature);
         }
     } else {
@@ -1809,12 +1819,16 @@ void BMBTIBusSensorValueUpdate(void *ctx, unsigned char *type)
         if (redraw == 1) {
             IBusCommandGTWriteZone(context->ibus, BMBT_HEADER_TEMPS, temperature);
             IBusCommandGTUpdate(context->ibus, IBUS_CMD_GT_WRITE_ZONE);
-        }
-
-        if (context->menu == BMBT_MENU_DASHBOARD ||
-            context->menu == BMBT_MENU_DASHBOARD_FRESH
-        ) {
-            BMBTMenuDashboardUpdateOBCValues(context);
+            if (context->menu == BMBT_MENU_DASHBOARD ||
+                context->menu == BMBT_MENU_DASHBOARD_FRESH
+            ) {
+                BMBTMenuDashboardUpdateOBCValues(context);
+                if (context->ibus->gtVersion == IBUS_GT_MKIV_STATIC) {
+                    IBusCommandGTUpdate(context->ibus, IBUS_CMD_GT_WRITE_STATIC);
+                } else {
+                    IBusCommandGTUpdate(context->ibus, context->status.navIndexType);
+                }
+            }
         }
     }    
 }
