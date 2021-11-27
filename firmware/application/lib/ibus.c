@@ -355,9 +355,13 @@ static void IBusHandleLCMMessage(IBus_t *ibus, unsigned char *pkt)
         if (ibus->vehicleType != IBUS_VEHICLE_TYPE_E46_Z4 &&
             pkt[23] != 0x00
         ) {
+            uint16_t offset = 310;
+            if (ibus->lmVariant == IBUS_LM_LCM_IV) {
+                offset = 510;
+            }
             // Oil Temp calculation
-            float rawTemperature = (pkt[23] * 0.01275) + (pkt[24] * 0.000050);
-            unsigned char oilTemperature = 1.0 * 67.2529 * log(rawTemperature) + 310.0;
+            float rawTemperature = pkt[23] * 0.00005 + pkt[24] * 0.01275;
+            unsigned char oilTemperature = 67 * log(rawTemperature) + offset;
             if (oilTemperature != ibus->oilTemperature) {
                 ibus->oilTemperature = oilTemperature;
                 unsigned char valueType = IBUS_SENSOR_VALUE_OIL_TEMP;
