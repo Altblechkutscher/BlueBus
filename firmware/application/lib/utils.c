@@ -74,6 +74,28 @@ UtilsAbstractDisplayValue_t UtilsDisplayValueInit(char *text, uint8_t status)
 }
 
 /**
+ * UtilsGetUnicdeByteLength()
+ *     Description:
+ *         Get the number of bytes in the unicode character
+ *     Params:
+ *         uint8_t byte - The byte to inspect
+ *     Returns:
+ *         uint8_t The number of bytes in the unicode character
+ */
+uint8_t UtilsGetUnicdeByteLength(uint8_t byte)
+{
+    uint8_t bytesInChar = 1;
+    if (currentByte >> 3 == 30) { // 0xF0 - 0xF4
+        bytesInChar = 4;
+    } else if (currentByte >> 4 == 14) { // 0xE0 - 0xEF
+        bytesInChar = 3;
+    } else if (currentByte >> 5 == 6) { // 0xC2 - 0xDF
+        bytesInChar = 2;
+    }
+    return bytesInChar;
+}
+
+/**
  * UtilsNormalizeText()
  *     Description:
  *         Unescape characters and convert them from UTF-8 to their Unicode
@@ -111,14 +133,7 @@ void UtilsNormalizeText(char *string, const char *input, uint16_t max_len)
             char currentByteBuf[] = {input[idx + 1], input[idx + 2], '\0'};
             unsigned char currentByte = UtilsStrToHex(currentByteBuf);
             // Identify number of bytes to read from the first byte
-            bytesInChar = 1;
-            if (currentByte >> 3 == 30) { // 0xF0 - 0xF4
-                bytesInChar = 4;
-            } else if (currentByte >> 4 == 14) { // 0xE0 - 0xEF
-                bytesInChar = 3;
-            } else if (currentByte >> 5 == 6) { // 0xC2 - 0xDF
-                bytesInChar = 2;
-            }
+            bytesInChar = UtilsGetUnicdeByteLength(currentByte);
             uint8_t charsToRead = bytesInChar * 3;
             // Identify if we can read all the bytes
             if ((idx + charsToRead) <= strLength) {
@@ -129,6 +144,19 @@ void UtilsNormalizeText(char *string, const char *input, uint16_t max_len)
                     unicodeChar = unicodeChar << 8 | byte;
                     bytesInChar--;
                     byteIdx = byteIdx + 3;
+                }
+                idx = idx + (charsToRead - 1);
+            } else {
+                idx = strLength;
+            }
+        } else if (currentChar > 0xFF) {
+            bytesInChar = UtilsGetUnicdeByteLength(currentByte);
+            // Identify if we can read all the bytes
+            if ((idx + bytesInChar) <= strLength) {
+                while (bytesInChar != 0) {
+                    unicodeChar = unicodeChar << 8 | input[idx];
+                    bytesInChar--;
+                    idx++;
                 }
                 idx = idx + (charsToRead - 1);
             } else {

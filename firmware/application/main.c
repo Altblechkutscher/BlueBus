@@ -11,7 +11,7 @@
 #include "handler.h"
 #include "mappings.h"
 #include "upgrade.h"
-#include "lib/bc127.h"
+#include "lib/bt.h"
 #include "lib/config.h"
 #include "lib/eeprom.h"
 #include "lib/log.h"
@@ -65,7 +65,7 @@ int main(void)
     // Set the RX / input pins to inputs
     IBUS_UART_RX_PIN_MODE = 1;
     IBUS_UART_STATUS_MODE = 1;
-    BC127_UART_RX_PIN_MODE = 1;
+    BT_UART_RX_PIN_MODE = 1;
     SYSTEM_UART_RX_PIN_MODE = 1;
     EEPROM_SDI_PIN_MODE = 1;
     SYS_DTR_MODE = 1;
@@ -80,7 +80,7 @@ int main(void)
     TEL_MUTE = 0;
     TEL_ON = 0;
     // Keep the BC127 out of data mode
-    BT_DATA_SEL = 0;
+    BT_DATA_SEL = 1;
 
     // Initialize the system UART first, since we needed it for debug
     struct UART_t systemUart = UARTInit(
@@ -103,13 +103,12 @@ int main(void)
     TimerInit();
     I2CInit();
 
-    struct BC127_t bt = BC127Init();
+    struct BT_t bt = BTInit();
     UARTAddModuleHandler(&bt.uart);
 
     struct IBus_t ibus = IBusInit();
     UARTAddModuleHandler(&ibus.uart);
 
-    
     // WM8804 and PCM5122 must be initialized after the I2C Bus
     WM88XXInit();
     PCM51XXInit();
@@ -124,10 +123,10 @@ int main(void)
     UpgradeProcess(&bt, &ibus);
     // Run the PCM51XX Start-up process
     PCM51XXStartup();
-
+    BT_DATA_SEL = 0;
     // Process events
     while (1) {
-        BC127Process(&bt);
+        BTProcess(&bt);
         IBusProcess(&ibus);
         TimerProcessScheduledTasks();
         CLIProcess();
@@ -146,7 +145,6 @@ void TrapWait()
         TimerDelayMicroseconds(1000);
         sleepCount++;
     }
-    
     UtilsReset();
 }
 

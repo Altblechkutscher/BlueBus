@@ -65,6 +65,32 @@ unsigned char CharQueueGet(CharQueue_t *queue, uint16_t idx)
 }
 
 /**
+ * CharQueueGetOffset()
+ *     Description:
+ *         Returns the byte at the location n steps away from the current index
+ *     Params:
+ *         CharQueue_t queue - The queue
+ *         uint16_t idx - The index to return data for
+ *     Returns:
+ *         unsigned char
+ */
+unsigned char CharQueueGetOffset(CharQueue_t *queue, uint16_t offset)
+{
+    if (offset > queue->size) {
+        return 0x00;
+    }
+    uint16_t offsetCursor = queue->readCursor;
+    while (offset > 0) {
+        offsetCursor++;
+        if (offsetCursor >= CHAR_QUEUE_SIZE) {
+            offsetCursor = 0;
+        }
+        offset--;
+    }
+    return queue->data[offsetCursor];
+}
+
+/**
  * CharQueueNext()
  *     Description:
  *         Shifts the next byte in the queue out, as seen by the read cursor.
