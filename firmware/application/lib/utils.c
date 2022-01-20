@@ -85,11 +85,11 @@ UtilsAbstractDisplayValue_t UtilsDisplayValueInit(char *text, uint8_t status)
 uint8_t UtilsGetUnicdeByteLength(uint8_t byte)
 {
     uint8_t bytesInChar = 1;
-    if (currentByte >> 3 == 30) { // 0xF0 - 0xF4
+    if (byte >> 3 == 30) { // 0xF0 - 0xF4
         bytesInChar = 4;
-    } else if (currentByte >> 4 == 14) { // 0xE0 - 0xEF
+    } else if (byte >> 4 == 14) { // 0xE0 - 0xEF
         bytesInChar = 3;
-    } else if (currentByte >> 5 == 6) { // 0xC2 - 0xDF
+    } else if (byte >> 5 == 6) { // 0xC2 - 0xDF
         bytesInChar = 2;
     }
     return bytesInChar;
@@ -150,7 +150,7 @@ void UtilsNormalizeText(char *string, const char *input, uint16_t max_len)
                 idx = strLength;
             }
         } else if (currentChar > 0xFF) {
-            bytesInChar = UtilsGetUnicdeByteLength(currentByte);
+            bytesInChar = UtilsGetUnicdeByteLength(currentChar);
             // Identify if we can read all the bytes
             if ((idx + bytesInChar) <= strLength) {
                 while (bytesInChar != 0) {
@@ -158,7 +158,7 @@ void UtilsNormalizeText(char *string, const char *input, uint16_t max_len)
                     bytesInChar--;
                     idx++;
                 }
-                idx = idx + (charsToRead - 1);
+                idx = idx + (bytesInChar - 1);
             } else {
                 idx = strLength;
             }

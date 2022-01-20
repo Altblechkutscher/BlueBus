@@ -272,6 +272,8 @@
 #define BM83_EVT_AVRCP_VENDOR_DEPENDENT_RSP 0x5D
 #define BM83_EVT_RUNTIME 0x5E
 
+#define BM83_UART_START_WORD 0xAA
+
 /* Define commands */
 void BM83CommandAVRCPGetCapabilities(BT_t *);
 void BM83CommandAVRCPGetElementAttributesAll(BT_t *);

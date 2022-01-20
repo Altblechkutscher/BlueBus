@@ -31,8 +31,8 @@
  *         write data from the UART module
  */
 typedef struct UART_t {
-    CharQueue_t rxQueue;
-    CharQueue_t txQueue;
+    volatile CharQueue_t rxQueue;
+    volatile CharQueue_t txQueue;
     uint8_t moduleIndex;
     uint8_t txPin;
     volatile uint16_t rxError;

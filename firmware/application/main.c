@@ -79,8 +79,12 @@ int main(void)
     // Keep the vehicle unmuted and telephone on disengaged
     TEL_MUTE = 0;
     TEL_ON = 0;
-    // Keep the BC127 out of data mode
-    BT_DATA_SEL = 1;
+    // Keep the BC127 out of data mode / Boot the BM83
+    BT_DATA_SEL = 0;
+
+    // Pull up the SDA/SCL lines
+    IOCPUEbits.IOCPE6 = 1;
+    IOCPUEbits.IOCPE7 = 1;
 
     // Initialize the system UART first, since we needed it for debug
     struct UART_t systemUart = UARTInit(
@@ -123,7 +127,7 @@ int main(void)
     UpgradeProcess(&bt, &ibus);
     // Run the PCM51XX Start-up process
     PCM51XXStartup();
-    BT_DATA_SEL = 0;
+
     // Process events
     while (1) {
         BTProcess(&bt);
@@ -140,15 +144,15 @@ void TrapWait()
 {
     ON_LED = 0;
     // Wait five seconds before resetting
-    uint16_t sleepCount = 0;
-    while (sleepCount <= 50000) {
-        TimerDelayMicroseconds(1000);
-        sleepCount++;
+    //uint16_t sleepCount = 0;
+    while (1) {
+        //TimerDelayMicroseconds(1000);
+        //sleepCount++;
     }
     UtilsReset();
 }
 
-void __attribute__ ((__interrupt__, auto_psv)) _AltOscillatorFail(void)
+void __attribute__ ((__interrupt__, auto_psv)) _AltOscillatorFail()
 {
     // Clear the trap flag
     INTCON1bits.OSCFAIL = 0;
@@ -156,7 +160,7 @@ void __attribute__ ((__interrupt__, auto_psv)) _AltOscillatorFail(void)
     TrapWait();
 }
 
-void __attribute__ ((__interrupt__, auto_psv)) _AltAddressError(void)
+void __attribute__ ((__interrupt__, auto_psv)) _AltAddressError()
 {
     // Clear the trap flag
     INTCON1bits.ADDRERR = 0;
@@ -164,8 +168,7 @@ void __attribute__ ((__interrupt__, auto_psv)) _AltAddressError(void)
     TrapWait();
 }
 
-
-void __attribute__ ((__interrupt__, auto_psv)) _AltStackError(void)
+void __attribute__ ((__interrupt__, auto_psv)) _AltStackError()
 {
     // Clear the trap flag
     INTCON1bits.STKERR = 0;
@@ -173,7 +176,7 @@ void __attribute__ ((__interrupt__, auto_psv)) _AltStackError(void)
     TrapWait();
 }
 
-void __attribute__ ((__interrupt__, auto_psv)) _AltMathError(void)
+void __attribute__ ((__interrupt__, auto_psv)) _AltMathError()
 {
     // Clear the trap flag
     INTCON1bits.MATHERR = 0;
@@ -181,13 +184,13 @@ void __attribute__ ((__interrupt__, auto_psv)) _AltMathError(void)
     TrapWait();
 }
 
-void __attribute__ ((__interrupt__, auto_psv)) _AltNVMError(void)
+void __attribute__ ((__interrupt__, auto_psv)) _AltNVMError()
 {
     ConfigSetTrapIncrement(CONFIG_TRAP_NVM);
     TrapWait();
 }
 
-void __attribute__ ((__interrupt__, auto_psv)) _AltGeneralError(void)
+void __attribute__ ((__interrupt__, auto_psv)) _AltGeneralError()
 {
     ConfigSetTrapIncrement(CONFIG_TRAP_GEN);
     TrapWait();

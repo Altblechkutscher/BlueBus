@@ -13,7 +13,7 @@
  *     Params:
  *         None
  *     Returns:
- *         CharQueue_t *
+ *         volatile CharQueue_t *
  */
 CharQueue_t CharQueueInit()
 {
@@ -28,12 +28,12 @@ CharQueue_t CharQueueInit()
  *     Description:
  *         Adds a byte to the queue. If the queue is full, the byte is discarded.
  *     Params:
- *         CharQueue_t *queue - The queue
+ *         volatile CharQueue_t *queue - The queue
  *         const unsigned char value - The value to add
  *     Returns:
  *         None
  */
-void CharQueueAdd(CharQueue_t *queue, const unsigned char value)
+void CharQueueAdd(volatile volatile CharQueue_t *queue, const unsigned char value)
 {
     if (queue->size < CHAR_QUEUE_SIZE) {
         if (queue->writeCursor >= CHAR_QUEUE_SIZE) {
@@ -56,7 +56,7 @@ void CharQueueAdd(CharQueue_t *queue, const unsigned char value)
  *     Returns:
  *         unsigned char
  */
-unsigned char CharQueueGet(CharQueue_t *queue, uint16_t idx)
+unsigned char CharQueueGet(volatile CharQueue_t *queue, uint16_t idx)
 {
     if (idx >= CHAR_QUEUE_SIZE) {
         return 0x00;
@@ -74,7 +74,7 @@ unsigned char CharQueueGet(CharQueue_t *queue, uint16_t idx)
  *     Returns:
  *         unsigned char
  */
-unsigned char CharQueueGetOffset(CharQueue_t *queue, uint16_t offset)
+unsigned char CharQueueGetOffset(volatile CharQueue_t *queue, uint16_t offset)
 {
     if (offset > queue->size) {
         return 0x00;
@@ -101,7 +101,7 @@ unsigned char CharQueueGetOffset(CharQueue_t *queue, uint16_t offset)
  *     Returns:
  *         unsigned char
  */
-unsigned char CharQueueNext(CharQueue_t *queue)
+unsigned char CharQueueNext(volatile CharQueue_t *queue)
 {
     unsigned char data = queue->data[queue->readCursor];
     // Remove the byte from memory
@@ -125,7 +125,7 @@ unsigned char CharQueueNext(CharQueue_t *queue)
  *     Returns:
  *         void
  */
-void CharQueueRemoveLast(CharQueue_t *queue)
+void CharQueueRemoveLast(volatile CharQueue_t *queue)
 {
     if (queue->size > 0) {
         queue->size--;
@@ -147,12 +147,12 @@ void CharQueueRemoveLast(CharQueue_t *queue)
  *     Returns:
  *         void
  */
-void CharQueueReset(CharQueue_t *queue)
+void CharQueueReset(volatile CharQueue_t *queue)
 {
     queue->size = 0;
     queue->readCursor = 0;
     queue->writeCursor = 0;
-    memset(queue->data, 0, CHAR_QUEUE_SIZE);
+    memset((void *) queue->data, 0, CHAR_QUEUE_SIZE);
 }
 
 /**
@@ -161,13 +161,13 @@ void CharQueueReset(CharQueue_t *queue)
  *         Checks if a given byte is in the queue and return the length of
  *         characters prior to it.
  *     Params:
- *         CharQueue_t *queue - The queue
+ *         volatile CharQueue_t *queue - The queue
  *         const unsigned char needle - The character to look for
  *     Returns:
  *         uint16_t - The length of characters prior to the needle or zero if
  *                   the needle wasn't found
  */
-uint16_t CharQueueSeek(CharQueue_t *queue, const unsigned char needle)
+uint16_t CharQueueSeek(volatile CharQueue_t *queue, const unsigned char needle)
 {
     uint16_t readCursor = queue->readCursor;
     uint16_t size = queue->size + 1;

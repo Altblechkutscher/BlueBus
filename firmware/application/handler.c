@@ -202,6 +202,17 @@ void HandlerInit(BT_t *bt, IBus_t *ibus)
     }
 }
 
+static uint8_t HandlerGetIsIgnitionStatusOn(HandlerContext_t *context)
+{
+    if (context->ibus->ignitionStatus > IBUS_IGNITION_OFF &&
+        (context->ibus->ignitionStatus != IBUS_IGNITION_KL99 ||
+         context->ibus->cdChangerFunction == IBUS_CDC_FUNC_PLAYING)
+    ) {
+        return 1;
+    }
+    return 0;
+}
+
 static void HandlerSwitchUI(HandlerContext_t *context, unsigned char newUi)
 {
     // Unregister the previous UI
@@ -397,6 +408,7 @@ void HandlerIBusCDCStatus(void *ctx, unsigned char *pkt)
                 }
             }
             if (context->ibus->ignitionStatus == IBUS_IGNITION_OFF) {
+                LogWarning("SET KL-99");
                 IBusSetInternalIgnitionStatus(context->ibus, IBUS_IGNITION_KL99);
             }
         } else {
@@ -1464,8 +1476,10 @@ void HandlerTimerCDCAnnounce(void *ctx)
 {
     HandlerContext_t *context = (HandlerContext_t *) ctx;
     uint32_t now = TimerGetMillis();
-    if ((now - context->cdChangerLastPoll) >= HANDLER_CDC_ANOUNCE_TIMEOUT &&
-        context->ibus->ignitionStatus > IBUS_IGNITION_OFF
+    uint32_t timeDiff = now - context->cdChangerLastPoll;
+    if (timeDiff >= HANDLER_CDC_ANOUNCE_TIMEOUT &&
+        context->ibus->ignitionStatus > IBUS_IGNITION_OFF &&
+        HandlerGetIsIgnitionStatusOn(context) == 1
     ) {
         IBusCommandSetModuleStatus(
             context->ibus,
@@ -1493,8 +1507,8 @@ void HandlerTimerCDCSendStatus(void *ctx)
     HandlerContext_t *context = (HandlerContext_t *) ctx;
     uint32_t now = TimerGetMillis();
     if ((now - context->cdChangerLastStatus) >= HANDLER_CDC_STATUS_TIMEOUT &&
-        context->ibus->ignitionStatus > IBUS_IGNITION_OFF &&
-        (context->uiMode == CONFIG_UI_BMBT || context->uiMode == CONFIG_UI_MID_BMBT)
+        (context->uiMode == CONFIG_UI_BMBT || context->uiMode == CONFIG_UI_MID_BMBT) &&
+        HandlerGetIsIgnitionStatusOn(context) == 1
     ) {
         HandlerIBusBroadcastCDCStatus(context);
         LogDebug(LOG_SOURCE_SYSTEM, "Handler: Send CDC status preemptively");
@@ -1619,9 +1633,8 @@ void HandlerTimerLCMIOStatus(void *ctx)
     HandlerContext_t *context = (HandlerContext_t *) ctx;
     if (ConfigGetLightingFeaturesActive() == CONFIG_SETTING_ON) {
         uint32_t now = TimerGetMillis();
-        if (context->ibus->ignitionStatus > IBUS_IGNITION_OFF &&
-            (now - context->lmLastIOStatus) >= 30000
-        ) {
+        uint32_t timeDiff = now - context->lmLastIOStatus;
+        if (timeDiff >= 30000 && HandlerGetIsIgnitionStatusOn(context) == 1) {
             IBusCommandDIAGetIOStatus(context->ibus, IBUS_DEVICE_LCM);
             context->lmLastIOStatus = now;
         }
@@ -1642,7 +1655,7 @@ void HandlerTimerLightingState(void *ctx)
     HandlerContext_t *context = (HandlerContext_t *) ctx;
     if (ConfigGetLightingFeaturesActive() == CONFIG_SETTING_ON) {
         uint32_t now = TimerGetMillis();
-        if (context->ibus->ignitionStatus > IBUS_IGNITION_OFF &&
+        if (HandlerGetIsIgnitionStatusOn(context) == 1 &&
             (now - context->lmLastStatusSet) >= 10000 &&
             (
                 context->lmState.comfortBlinkerStatus != HANDLER_LM_COMF_BLINK_OFF ||

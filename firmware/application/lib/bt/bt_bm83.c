@@ -953,84 +953,89 @@ void BM83ProcessEventReportLinkBackStatus(BT_t *bt, uint8_t *data, uint16_t leng
  */
 void BM83Process(BT_t *bt)
 {
-    if (bt->uart.rxQueue.size >= 3) {
-        uint8_t startw = CharQueueGetOffset(&bt->uart.rxQueue, 0);
-        if (startw != 0xAA) {
-            // Trash the byte
-            uint8_t byte = CharQueueNext(&bt->uart.rxQueue);
-            LogWarning("BT: Invalid Start Word [%02X]", byte);
-        } else {
-            uint8_t lengthHigh = CharQueueGetOffset(&bt->uart.rxQueue, 1);
-            uint8_t lengthLow = CharQueueGetOffset(&bt->uart.rxQueue, 2);
-            uint16_t frameLength = (lengthLow & 0xFF) | (lengthHigh << 8);
-            if (bt->uart.rxQueue.size >= frameLength && frameLength > 0) {
-                long long unsigned int ts = (long long unsigned int) TimerGetMillis();
-                LogRawDebug(LOG_SOURCE_BT, "[%llu] DEBUG: BM83: RX: ", ts);
-                uint8_t startWord = CharQueueNext(&bt->uart.rxQueue);
-                LogRawDebug(LOG_SOURCE_BT, "%02X ", startWord);
-                // Drop the 16-bit frame length
-                LogRawDebug(LOG_SOURCE_BT, "%02X ", CharQueueNext(&bt->uart.rxQueue));
-                LogRawDebug(LOG_SOURCE_BT, "%02X ", CharQueueNext(&bt->uart.rxQueue));
-                uint8_t event = CharQueueNext(&bt->uart.rxQueue);
-                LogRawDebug(LOG_SOURCE_BT, "%02X ", event);
-                frameLength--;
-                uint8_t eventData[frameLength];
-                memset(eventData, 0, frameLength);
-                uint16_t dataLength;
-                for (dataLength = 0; dataLength < frameLength; dataLength++) {
-                    eventData[dataLength] = CharQueueNext(&bt->uart.rxQueue);
-                    LogRawDebug(LOG_SOURCE_BT, "%02X ", eventData[dataLength]);
+    uint16_t hasStartWord = CharQueueSeek(&bt->uart.rxQueue, BM83_UART_START_WORD);
+    if (bt->uart.rxQueue.size >= 3 && hasStartWord != 0) {
+        if (hasStartWord != 1) {
+            LogRawDebug(LOG_SOURCE_BT, "BT: Trash Bytes: ");
+            while (hasStartWord > 1) {
+                uint8_t byte = CharQueueNext(&bt->uart.rxQueue);
+                LogRawDebug(LOG_SOURCE_BT, "%02X ", byte);
+                hasStartWord--;
+            }
+            LogRawDebug(LOG_SOURCE_BT, "\r\n");
+        }
+        uint8_t lengthHigh = CharQueueGetOffset(&bt->uart.rxQueue, 1);
+        uint8_t lengthLow = CharQueueGetOffset(&bt->uart.rxQueue, 2);
+        uint16_t frameLength = (lengthLow & 0xFF) | (lengthHigh << 8);
+        if (bt->uart.rxQueue.size >= frameLength && frameLength > 0) {
+            long long unsigned int ts = (long long unsigned int) TimerGetMillis();
+            LogRawDebug(LOG_SOURCE_BT, "[%llu] DEBUG: BM83: RX: ", ts);
+            uint8_t startWord = CharQueueNext(&bt->uart.rxQueue);
+            LogRawDebug(LOG_SOURCE_BT, "%02X ", startWord);
+            // Drop the 16-bit frame length
+            uint8_t lenHigh = CharQueueNext(&bt->uart.rxQueue);
+            LogRawDebug(LOG_SOURCE_BT, "%02X ", lenHigh);
+            uint8_t lenLow = CharQueueNext(&bt->uart.rxQueue);
+            LogRawDebug(LOG_SOURCE_BT, "%02X ", lenLow);
+            uint8_t event = CharQueueNext(&bt->uart.rxQueue);
+            LogRawDebug(LOG_SOURCE_BT, "%02X ", event);
+            frameLength--;
+            uint8_t eventData[frameLength];
+            memset(eventData, 0, frameLength);
+            uint16_t dataLength;
+            for (dataLength = 0; dataLength < frameLength; dataLength++) {
+                eventData[dataLength] = CharQueueNext(&bt->uart.rxQueue);
+                LogRawDebug(LOG_SOURCE_BT, "%02X ", eventData[dataLength]);
+            }
+            uint8_t checksum = CharQueueNext(&bt->uart.rxQueue);
+            LogRawDebug(LOG_SOURCE_BT, "%02X\r\n", checksum);
+            // Always acknowledge reception of the frame first
+            if (event != BM83_EVT_COMMAND_ACK) {
+                uint8_t ack[] = {BM83_CMD_EVENT_ACK, event};
+                BM83SendCommand(bt, ack, sizeof(ack));
+            }
+            if (event == BM83_EVT_AVC_SPECIFIC_RSP) {
+                BM83ProcessEventAVCSpecificRsp(bt, eventData, dataLength);
+            }
+            if (event == BM83_EVT_BTM_STATUS) {
+                BM83ProcessEventBTMStatus(bt, eventData, dataLength);
+            }
+            if (event == BM83_EVT_CALL_STATUS) {
+                BM83ProcessEventCallStatus(bt, eventData, dataLength);
+            }
+            if (event == BM83_EVT_CALLER_ID) {
+                BM83ProcessEventCallerID(bt, eventData, dataLength);
+            }
+            if (event == BM83_EVT_READ_LINK_STATUS_REPLY) {
+                BM83ProcessEventReadLinkStatus(bt, eventData, dataLength);
+            }
+            if (event == BM83_EVT_READ_LINKED_DEVICE_INFORMATION_REPLY) {
+                BM83ProcessEventReadLinkedDeviceInformation(
+                    bt,
+                    eventData,
+                    dataLength
+                );
+            }
+            if (event == BM83_EVT_READ_PAIRED_DEVICE_RECORD_REPLY) {
+                BM83ProcessEventReadPairedDeviceRecord(
+                    bt,
+                    eventData,
+                    dataLength
+                );
+            }
+            if (event == BM83_EVT_REPORT_BTM_INITIAL_STATUS) {
+                if (eventData[BM83_FRAME_DB0] ==
+                    BM83_DATA_BTM_INITIAL_STATUS_BOOT_COMPLETE
+                ) {
+                    EventTriggerCallback(BT_EVENT_BOOT, 0);
                 }
-                uint8_t checksum = CharQueueNext(&bt->uart.rxQueue);
-                LogRawDebug(LOG_SOURCE_BT, "%02X\r\n", checksum);
-                // Always acknowledge reception of the frame first
-                if (event != BM83_EVT_COMMAND_ACK) {
-                    uint8_t ack[] = {BM83_CMD_EVENT_ACK, event};
-                    BM83SendCommand(bt, ack, sizeof(ack));
-                }
-                if (event == BM83_EVT_AVC_SPECIFIC_RSP) {
-                    BM83ProcessEventAVCSpecificRsp(bt, eventData, dataLength);
-                }
-                if (event == BM83_EVT_BTM_STATUS) {
-                    BM83ProcessEventBTMStatus(bt, eventData, dataLength);
-                }
-                if (event == BM83_EVT_CALL_STATUS) {
-                    BM83ProcessEventCallStatus(bt, eventData, dataLength);
-                }
-                if (event == BM83_EVT_CALLER_ID) {
-                    BM83ProcessEventCallerID(bt, eventData, dataLength);
-                }
-                if (event == BM83_EVT_READ_LINK_STATUS_REPLY) {
-                    BM83ProcessEventReadLinkStatus(bt, eventData, dataLength);
-                }
-                if (event == BM83_EVT_READ_LINKED_DEVICE_INFORMATION_REPLY) {
-                    BM83ProcessEventReadLinkedDeviceInformation(
-                        bt,
-                        eventData,
-                        dataLength
-                    );
-                }
-                if (event == BM83_EVT_READ_PAIRED_DEVICE_RECORD_REPLY) {
-                    BM83ProcessEventReadPairedDeviceRecord(
-                        bt,
-                        eventData,
-                        dataLength
-                    );
-                }
-                if (event == BM83_EVT_REPORT_BTM_INITIAL_STATUS) {
-                    if (eventData[BM83_FRAME_DB0] ==
-                        BM83_DATA_BTM_INITIAL_STATUS_BOOT_COMPLETE
-                    ) {
-                        EventTriggerCallback(BT_EVENT_BOOT, 0);
-                    }
-                }
-                if (event == BM83_EVT_REPORT_LINK_BACK_STATUS) {
-                    BM83ProcessEventReportLinkBackStatus(
-                        bt,
-                        eventData,
-                        dataLength
-                    );
-                }
+            }
+            if (event == BM83_EVT_REPORT_LINK_BACK_STATUS) {
+                BM83ProcessEventReportLinkBackStatus(
+                    bt,
+                    eventData,
+                    dataLength
+                );
             }
         }
     }
@@ -1061,8 +1066,7 @@ void BM83SendCommand(
         ts
     );
     uint8_t checksum = 0xFF;
-    // Send the startword
-    CharQueueAdd(&bt->uart.txQueue, 0xAA);
+    CharQueueAdd(&bt->uart.txQueue, BM83_UART_START_WORD);
     // Send the length
     CharQueueAdd(&bt->uart.txQueue, 0x00);
     CharQueueAdd(&bt->uart.txQueue, size);

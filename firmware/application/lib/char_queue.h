@@ -21,19 +21,19 @@
  *         are reset. If data is not removed from the buffer before it hits
  *         capacity, the data will be lost.
  */
-typedef struct CharQueue_t {
-    uint16_t size;
-    uint16_t readCursor;
-    uint16_t writeCursor;
-    unsigned char data[CHAR_QUEUE_SIZE];
+typedef volatile struct CharQueue_t {
+    volatile uint16_t size;
+    volatile uint16_t readCursor;
+    volatile uint16_t writeCursor;
+    volatile unsigned char data[CHAR_QUEUE_SIZE];
 } CharQueue_t;
 
-struct CharQueue_t CharQueueInit();
-void CharQueueAdd(CharQueue_t *, const unsigned char);
-unsigned char CharQueueGet(CharQueue_t *, uint16_t);
-unsigned char CharQueueGetOffset(CharQueue_t *, uint16_t);
-unsigned char CharQueueNext(CharQueue_t *);
-void CharQueueRemoveLast(CharQueue_t *);
-void CharQueueReset(CharQueue_t *);
-uint16_t CharQueueSeek(CharQueue_t *, const unsigned char);
+volatile struct CharQueue_t CharQueueInit();
+void CharQueueAdd(volatile CharQueue_t *, const unsigned char);
+unsigned char CharQueueGet(volatile CharQueue_t *, uint16_t);
+unsigned char CharQueueGetOffset(volatile CharQueue_t *, uint16_t);
+unsigned char CharQueueNext(volatile CharQueue_t *);
+void CharQueueRemoveLast(volatile CharQueue_t *);
+void CharQueueReset(volatile CharQueue_t *);
+uint16_t CharQueueSeek(volatile CharQueue_t *, const unsigned char);
 #endif /* CHAR_QUEUE_H */
