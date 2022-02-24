@@ -109,7 +109,7 @@ uint8_t UtilsGetUnicdeByteLength(uint8_t byte)
  */
 void UtilsNormalizeText(char *string, const char *input, uint16_t max_len)
 {
-    uint16_t idx;
+    uint16_t idx = 0;
     uint16_t strIdx = 0;
     uint32_t unicodeChar;
 
@@ -124,14 +124,14 @@ void UtilsNormalizeText(char *string, const char *input, uint16_t max_len)
     
     unsigned char uiMode = ConfigGetUIMode();
 
-    for (idx = 0; (idx < strLength) && (strIdx < (max_len - 1)); idx++) {
+    while (idx < strLength && strIdx < (max_len - 1)) {
         uint8_t currentChar = (uint8_t) input[idx];
         unicodeChar = 0 | currentChar;
 
         if (currentChar == '\\') {
             unicodeChar = 0;
             char currentByteBuf[] = {input[idx + 1], input[idx + 2], '\0'};
-            unsigned char currentByte = UtilsStrToHex(currentByteBuf);
+            uint8_t currentByte = UtilsStrToHex(currentByteBuf);
             // Identify number of bytes to read from the first byte
             bytesInChar = UtilsGetUnicdeByteLength(currentByte);
             uint8_t charsToRead = bytesInChar * 3;
@@ -140,28 +140,31 @@ void UtilsNormalizeText(char *string, const char *input, uint16_t max_len)
                 uint8_t byteIdx = idx;
                 while (bytesInChar != 0) {
                     char buf[] = {input[byteIdx + 1], input[byteIdx + 2], '\0'};
-                    unsigned char byte = UtilsStrToHex(buf);
+                    uint8_t byte = UtilsStrToHex(buf);
                     unicodeChar = unicodeChar << 8 | byte;
                     bytesInChar--;
                     byteIdx = byteIdx + 3;
                 }
-                idx = idx + (charsToRead - 1);
+                idx = idx + charsToRead;
             } else {
                 idx = strLength;
             }
-        } else if (currentChar > 0xFF) {
+        } else if (currentChar > 0x7F) {
+            unicodeChar = 0;
             bytesInChar = UtilsGetUnicdeByteLength(currentChar);
             // Identify if we can read all the bytes
             if ((idx + bytesInChar) <= strLength) {
                 while (bytesInChar != 0) {
-                    unicodeChar = unicodeChar << 8 | input[idx];
+                    uint8_t byte = input[idx];
+                    unicodeChar = unicodeChar << 8 | byte;
                     bytesInChar--;
                     idx++;
                 }
-                idx = idx + (bytesInChar - 1);
             } else {
                 idx = strLength;
             }
+        } else {
+            idx++;
         }
 
         if (unicodeChar >= 0x20 && unicodeChar <= 0x7E) {

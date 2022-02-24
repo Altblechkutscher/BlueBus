@@ -517,7 +517,9 @@ void BM83ProcessEventAVCSpecificRsp(BT_t *bt, uint8_t *data, uint16_t length)
                                 tempString[j] = data[bytePos];
                                 bytePos++;
                             }
-                            strncpy(bt->title, tempString, BT_METADATA_FIELD_SIZE);
+                            char text[BT_METADATA_MAX_SIZE] = {0};
+                            UtilsNormalizeText(text, tempString, BT_METADATA_MAX_SIZE);
+                            strncpy(bt->title, text, BT_METADATA_FIELD_SIZE);
                             break;
                         }
                         case BM83_AVRCP_DATA_ELEMENT_TYPE_ARTIST: {
@@ -526,7 +528,9 @@ void BM83ProcessEventAVCSpecificRsp(BT_t *bt, uint8_t *data, uint16_t length)
                                 tempString[j] = data[bytePos];
                                 bytePos++;
                             }
-                            strncpy(bt->artist, tempString, BT_METADATA_FIELD_SIZE);
+                            char text[BT_METADATA_MAX_SIZE] = {0};
+                            UtilsNormalizeText(text, tempString, BT_METADATA_MAX_SIZE);
+                            strncpy(bt->artist, text, BT_METADATA_FIELD_SIZE);
                             break;
                         }
                         case BM83_AVRCP_DATA_ELEMENT_TYPE_ALBUM: {
@@ -535,7 +539,9 @@ void BM83ProcessEventAVCSpecificRsp(BT_t *bt, uint8_t *data, uint16_t length)
                                 tempString[j] = data[bytePos];
                                 bytePos++;
                             }
-                            strncpy(bt->album, tempString, BT_METADATA_FIELD_SIZE);
+                            char text[BT_METADATA_MAX_SIZE] = {0};
+                            UtilsNormalizeText(text, tempString, BT_METADATA_MAX_SIZE);
+                            strncpy(bt->album, text, BT_METADATA_FIELD_SIZE);
                             break;
                         }
                         default:
