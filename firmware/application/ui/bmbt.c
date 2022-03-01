@@ -498,7 +498,7 @@ static void BMBTMenuDashboardUpdateOBCValues(BMBTContext_t *context)
         }
         char temperature[29] = {0};
 
-        snprintf(temperature, 29, "Temp\xB0%c: %s%s%s", tempUnit, oiltempstr, cooltempstr, ambtempstr);
+        snprintf(temperature, 29, "%s\xB0%c: %s%s%s", (oiltemp>0?"":"Temp"),tempUnit, oiltempstr, cooltempstr, ambtempstr);
 
         if (context->ibus->gtVersion == IBUS_GT_MKIV_STATIC) {
             IBusCommandGTWriteIndexStatic(context->ibus, 0x45, temperature);
