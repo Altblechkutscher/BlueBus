@@ -83,6 +83,11 @@ void BMBTInit(BC127_t *bt, IBus_t *ibus)
         &Context
     );
     EventRegisterCallback(
+        IBUS_EVENT_SCREEN_BUFFER_FLUSH,
+        &BMBTIBusScreenBufferFlush,
+        &Context
+    );
+    EventRegisterCallback(
         IBUS_EVENT_SENSOR_VALUE_UPDATE,
         &BMBTIBusSensorValueUpdate,
         &Context
@@ -93,7 +98,7 @@ void BMBTInit(BC127_t *bt, IBus_t *ibus)
         &Context
     );
     EventRegisterCallback(
-        IBUS_EVENT_RADUpdateMainArea,
+        IBUS_EVENT_RAD_WRITE_DISPLAY,
         &BMBTRADUpdateMainArea,
         &Context
     );
@@ -174,6 +179,10 @@ void BMBTDestroy()
         &BMBTIBusCDChangerStatus
     );
     EventUnregisterCallback(
+        IBUS_EVENT_SCREEN_BUFFER_FLUSH,
+        &BMBTIBusScreenBufferFlush
+    );
+    EventUnregisterCallback(
         IBUS_EVENT_SENSOR_VALUE_UPDATE,
         &BMBTIBusSensorValueUpdate
     );
@@ -190,7 +199,7 @@ void BMBTDestroy()
         &BMBTRADDisplayMenu
     );
     EventUnregisterCallback(
-        IBUS_EVENT_RADUpdateMainArea,
+        IBUS_EVENT_RAD_WRITE_DISPLAY,
         &BMBTRADUpdateMainArea
     );
     EventUnregisterCallback(
@@ -454,9 +463,9 @@ static void BMBTMenuDashboardUpdateOBCValues(BMBTContext_t *context)
 {
     if (ConfigGetSetting(CONFIG_SETTING_BMBT_DASHBOARD_OBC_ADDRESS) != CONFIG_SETTING_OFF) {
         char tempUnit = 'C';
-        char ambtempstr[7] = {0};
-        char oiltempstr[8] = {0};
-        char cooltempstr[8] = {0};
+        char ambtempstr[8] = {0};
+        char oiltempstr[7] = {0};
+        char cooltempstr[7] = {0};
         
         if (ConfigGetTempUnit() == CONFIG_SETTING_TEMP_FAHRENHEIT) {
             tempUnit = 'F';
@@ -475,30 +484,25 @@ static void BMBTMenuDashboardUpdateOBCValues(BMBTContext_t *context)
                 cooltemp = (cooltemp * 1.8 + 32 + 0.5);
             }
         }
+
+        if (context->ibus->ambientTemperatureCalculated[0] != 0x00) {
+            snprintf(ambtempstr, 8, "A:%s", context->ibus->ambientTemperatureCalculated);
+        } else {
+            snprintf(ambtempstr, 8, "A:%+d", ambtemp);
+        }
+        if (cooltemp > 0) { 
+            snprintf(cooltempstr, 7, "C:%d,", cooltemp);
+        }
+        if (oiltemp > 0) {
+            snprintf(oiltempstr, 7, "O:%d,", oiltemp);
+        }
+        char temperature[29] = {0};
+
+        snprintf(temperature, 29, "Temp\xB0%c: %s%s%s", tempUnit, oiltempstr, cooltempstr, ambtempstr);
+
         if (context->ibus->gtVersion == IBUS_GT_MKIV_STATIC) {
-            snprintf(ambtempstr, 7, "A: %+d", ambtemp);
-            if (cooltemp > 0) { 
-                snprintf(cooltempstr, 8, "C: %d, ", cooltemp);
-            }
-            if (oiltemp > 0) {
-                snprintf(oiltempstr, 8, "O: %d, ", oiltemp);
-            }
-            char temperature[29] = {0};
-    
-            snprintf(temperature, 29, "Temps (\xB0%c): %s%s%s", oiltempstr, cooltempstr, ambtempstr, tempUnit);
             IBusCommandGTWriteIndexStatic(context->ibus, 0x45, temperature);
         } else {
-            snprintf(ambtempstr, 7, "A:%+d", ambtemp);
-            if (cooltemp > 0) { 
-                snprintf(cooltempstr, 8, "C:%d, ", cooltemp);
-            }
-            if (oiltemp > 0) {
-                snprintf(oiltempstr, 8, "O:%d, ", oiltemp);
-            }
-            char temperature[29] = {0};
-    
-            snprintf(temperature, 29, "Temps (\xB0%c): %s%s%s", oiltempstr, cooltempstr, ambtempstr, tempUnit);
-            IBusCommandGTWriteIndexStatic(context->ibus, 0x45, temperature);
             IBusCommandGTWriteIndex(context->ibus, 4, temperature);
         }
     } else {
@@ -1744,6 +1748,27 @@ void BMBTIBusMenuSelect(void *ctx, unsigned char *pkt)
     }
 }
 
+/**
+ * BMBTIBusScreenBufferFlush()
+ *     Description:
+ *         Respond to screen flushes that may not have been made by us
+ *     Params:
+ *         void *context - A void pointer to the BMBTContext_t struct
+ *         unsigned char *pkt - The I/K-Bus packet
+ *     Returns:
+ *         void
+ */
+void BMBTIBusScreenBufferFlush(void *ctx, unsigned char *pkt)
+{
+    BMBTContext_t *context = (BMBTContext_t *) ctx;
+    // Ignore Zone (Header) updates
+    if (pkt[IBUS_PKT_DB1] != IBUS_CMD_GT_WRITE_ZONE) {
+        if (pkt[IBUS_PKT_DB1] != context->status.navIndexType) {
+            IBusCommandGTUpdate(context->ibus, context->status.navIndexType);
+        }
+    }
+}
+
 
 /**
  * BMBTIBusSensorValueUpdate()
@@ -1764,6 +1789,10 @@ void BMBTIBusSensorValueUpdate(void *ctx, unsigned char *type)
     char redraw = 0;
     char temperature[8] = {0};
     char config = ConfigGetTempDisplay();
+
+    if (context->ibus->ambientTemperatureCalculated[0] == 0) {
+       IBusCommandOBCControlTempRequest(context->ibus);
+    }
 
     if (context->status.displayMode == BMBT_DISPLAY_ON) {
 
@@ -1809,9 +1838,13 @@ void BMBTIBusSensorValueUpdate(void *ctx, unsigned char *type)
                     temp = temp * 1.8 + 32 + 0.5;
                 }
                 if (config == CONFIG_SETTING_TEMP_AMBIENT) {
-                    snprintf(temperature, 8, "%+d\xB0%c", temp, tempUnit);
+                    if (tempUnit == 'F') {
+                        snprintf(temperature, 7, "%+d\xB0%c", temp, tempUnit);                  
+                    } else {
+                        snprintf(temperature, 8, "%+d.0\xB0%c", temp, tempUnit);
+                    }
                 } else {
-                    snprintf(temperature, 8, "%d\xB0%c", temp, tempUnit);                 
+                    snprintf(temperature, 6, "%d\xB0%c", temp, tempUnit);                 
                 }
             }
         }
@@ -1819,15 +1852,16 @@ void BMBTIBusSensorValueUpdate(void *ctx, unsigned char *type)
         if (redraw == 1) {
             IBusCommandGTWriteZone(context->ibus, BMBT_HEADER_TEMPS, temperature);
             IBusCommandGTUpdate(context->ibus, IBUS_CMD_GT_WRITE_ZONE);
-            if (context->menu == BMBT_MENU_DASHBOARD ||
-                context->menu == BMBT_MENU_DASHBOARD_FRESH
-            ) {
-                BMBTMenuDashboardUpdateOBCValues(context);
-                if (context->ibus->gtVersion == IBUS_GT_MKIV_STATIC) {
-                    IBusCommandGTUpdate(context->ibus, IBUS_CMD_GT_WRITE_STATIC);
-                } else {
-                    IBusCommandGTUpdate(context->ibus, context->status.navIndexType);
-                }
+        }
+
+        if (context->menu == BMBT_MENU_DASHBOARD ||
+            context->menu == BMBT_MENU_DASHBOARD_FRESH
+        ) {
+            BMBTMenuDashboardUpdateOBCValues(context);
+            if (context->ibus->gtVersion == IBUS_GT_MKIV_STATIC) {
+                IBusCommandGTUpdate(context->ibus, IBUS_CMD_GT_WRITE_STATIC);
+            } else {
+                IBusCommandGTUpdate(context->ibus, context->status.navIndexType);
             }
         }
     }    
@@ -2149,19 +2183,24 @@ void BMBTTimerScrollDisplay(void *ctx)
             context->mainDisplay.timeout--;
         } else {
             if (context->mainDisplay.length > 9) {
-                char text[10] = {0};
+                char text[BMBT_DISPLAY_TEXT_LEN + 1] = {0};
+                uint8_t textLength = BMBT_DISPLAY_TEXT_LEN;
+                uint8_t idxEnd = context->mainDisplay.index + textLength;
+                // Prevent strncpy() from going out of bounds
+                if (idxEnd >= context->mainDisplay.length) {
+                    textLength = context->mainDisplay.length - context->mainDisplay.index;
+                    idxEnd = context->mainDisplay.index + textLength;
+                }
                 strncpy(
                     text,
                     &context->mainDisplay.text[context->mainDisplay.index],
-                    9
+                    textLength
                 );
-                text[9] = '\0';
                 BMBTGTWriteTitle(context, text);
                 // Pause at the beginning of the text
                 if (context->mainDisplay.index == 0) {
                     context->mainDisplay.timeout = 5;
                 }
-                uint8_t idxEnd = context->mainDisplay.index + 9;
                 if (idxEnd >= context->mainDisplay.length) {
                     // Pause at the end of the text
                     context->mainDisplay.timeout = 2;

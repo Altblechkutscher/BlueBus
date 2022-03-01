@@ -56,6 +56,7 @@
 #define IBUS_PKT_CMD 3
 #define IBUS_PKT_DB1 4
 #define IBUS_PKT_DB2 5
+#define IBUS_PKT_DB3 6
 
 // IBus Commands
 #define IBUS_COMMAND_CDC_REQUEST 0x38
@@ -375,7 +376,7 @@
 #define IBUS_EVENT_BMBTButton 37
 #define IBUS_EVENT_GTMenuSelect 38
 #define IBUS_EVENT_ScreenModeUpdate 39
-#define IBUS_EVENT_RADUpdateMainArea 40
+#define IBUS_EVENT_RAD_WRITE_DISPLAY 40
 #define IBUS_EVENT_ScreenModeSet 41
 #define IBUS_EVENT_RADDiagResponse 42
 #define IBUS_EVENT_MFLButton 43
@@ -405,6 +406,7 @@
 #define IBUS_EVENT_TV_STATUS 68
 #define IBUS_EVENT_PDC_STATUS 69
 #define IBUS_EVENT_SENSOR_VALUE_UPDATE 70
+#define IBUS_EVENT_SCREEN_BUFFER_FLUSH 71
 
 // Configuration and protocol definitions
 #define IBUS_MAX_MSG_LENGTH 47 // Src Len Dest Cmd Data[42 Byte Max] XOR
@@ -494,8 +496,8 @@ void IBusCommandGTWriteZone(IBus_t *, uint8_t, char *);
 void IBusCommandIKEGetIgnitionStatus(IBus_t *);
 void IBusCommandIKEGetVehicleConfig(IBus_t *);
 void IBusCommandIKESetTime(IBus_t *, uint8_t, uint8_t);
-void IBusCommandIKEText(IBus_t *, char *);
-void IBusCommandIKETextClear(IBus_t *);
+void IBusCommandTELIKEDisplayWrite(IBus_t *, char *);
+void IBusCommandTELIKEDisplayClear(IBus_t *);
 void IBusCommandLMActivateBulbs(IBus_t *, unsigned char, unsigned char);
 void IBusCommandLMGetClusterIndicators(IBus_t *);
 void IBusCommandLMGetRedundantData(IBus_t *);
@@ -516,6 +518,7 @@ void IBusCommandTELSetGTDisplayMenu(IBus_t *);
 void IBusCommandTELSetLED(IBus_t *, unsigned char);
 void IBusCommandTELStatus(IBus_t *, unsigned char);
 void IBusCommandTELStatusText(IBus_t *, char *, unsigned char);
+void IBusCommandOBCControlTempRequest(IBus_t *);
 /* Temporary */
 void IBusCommandIgnitionStatus(IBus_t *, unsigned char);
 void IBusCommandLCMTurnLeft(IBus_t *);

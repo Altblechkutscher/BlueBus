@@ -22,6 +22,7 @@
 #define BMBT_DISPLAY_TONE_SEL 0x01
 #define BMBT_DISPLAY_INFO 0x02
 #define BMBT_DISPLAY_ON 0x03
+#define BMBT_DISPLAY_TEXT_LEN 9
 #define BMBT_HEADER_BT 1
 #define BMBT_HEADER_PB_STAT 2
 #define BMBT_HEADER_TEMPS 5
@@ -127,6 +128,7 @@ void BMBTIBusBMBTButtonPress(void *, unsigned char *);
 void BMBTIBusCDChangerStatus(void *, unsigned char *);
 void BMBTIBusGTChangeUIRequest(void *, unsigned char *);
 void BMBTIBusMenuSelect(void *, unsigned char *);
+void BMBTIBusScreenBufferFlush(void *, unsigned char *);
 void BMBTIBusSensorValueUpdate(void *, unsigned char *);
 void BMBTRADDisplayMenu(void *, unsigned char *);
 void BMBTRADUpdateMainArea(void *, unsigned char *);

@@ -43,6 +43,7 @@ void HandlerInit(BC127_t *bt, IBus_t *ibus)
     Context.seekMode = HANDLER_CDC_SEEK_MODE_NONE;
     Context.lmDimmerChecksum = 0x00;
     Context.mflButtonStatus = HANDLER_MFL_STATUS_OFF;
+    Context.gtStatus = HANDLER_GT_STATUS_UNCHECKED;
     Context.telStatus = IBUS_TEL_STATUS_ACTIVE_POWER_HANDSFREE;
     Context.btBootFailure = HANDLER_BT_BOOT_OK;
     memset(&Context.gmState, 0, sizeof(HandlerBodyModuleStatus_t));
@@ -50,7 +51,7 @@ void HandlerInit(BC127_t *bt, IBus_t *ibus)
     memset(&Context.ibusModuleStatus, 0, sizeof(HandlerModuleStatus_t));
     Context.powerStatus = HANDLER_POWER_ON;
     Context.scanIntervals = 0;
-    Context.lmLastIOStatus = now;
+    Context.lmLastIOStatus = 0;
     Context.cdChangerLastPoll = now;
     Context.cdChangerLastStatus = now;
     Context.pdcLastStatus = 0;
@@ -280,31 +281,33 @@ void HandlerInit(BC127_t *bt, IBus_t *ibus)
 
 static void HandlerSwitchUI(HandlerContext_t *context, unsigned char newUi)
 {
-    // Unregister the previous UI
-    if (context->uiMode == CONFIG_UI_CD53 ||
-        context->uiMode == CONFIG_UI_BUSINESS_NAV
-    ) {
-        CD53Destroy();
-    } else if (context->uiMode == CONFIG_UI_BMBT) {
-        BMBTDestroy();
-    } else if (context->uiMode == CONFIG_UI_MID) {
-        MIDDestroy();
-    } else if (context->uiMode == CONFIG_UI_MID_BMBT) {
-        MIDDestroy();
-        BMBTDestroy();
+    if (context->uiMode != newUi) {
+        // Unregister the previous UI
+        if (context->uiMode == CONFIG_UI_CD53 ||
+            context->uiMode == CONFIG_UI_BUSINESS_NAV
+        ) {
+            CD53Destroy();
+        } else if (context->uiMode == CONFIG_UI_BMBT) {
+            BMBTDestroy();
+        } else if (context->uiMode == CONFIG_UI_MID) {
+            MIDDestroy();
+        } else if (context->uiMode == CONFIG_UI_MID_BMBT) {
+            MIDDestroy();
+            BMBTDestroy();
+        }
+        if (newUi == CONFIG_UI_CD53 || newUi == CONFIG_UI_BUSINESS_NAV) {
+            CD53Init(context->bt, context->ibus);
+        } else if (newUi == CONFIG_UI_BMBT) {
+            BMBTInit(context->bt, context->ibus);
+        } else if (newUi == CONFIG_UI_MID) {
+            MIDInit(context->bt, context->ibus);
+        } else if (newUi == CONFIG_UI_MID_BMBT) {
+            MIDInit(context->bt, context->ibus);
+            BMBTInit(context->bt, context->ibus);
+        }
+        ConfigSetUIMode(newUi);
+        context->uiMode = newUi;
     }
-    if (newUi == CONFIG_UI_CD53 || newUi == CONFIG_UI_BUSINESS_NAV) {
-        CD53Init(context->bt, context->ibus);
-    } else if (newUi == CONFIG_UI_BMBT) {
-        BMBTInit(context->bt, context->ibus);
-    } else if (newUi == CONFIG_UI_MID) {
-        MIDInit(context->bt, context->ibus);
-    } else if (newUi == CONFIG_UI_MID_BMBT) {
-        MIDInit(context->bt, context->ibus);
-        BMBTInit(context->bt, context->ibus);
-    }
-    ConfigSetUIMode(newUi);
-    context->uiMode = newUi;
 }
 
 /**
@@ -752,7 +755,8 @@ void HandlerIBusCDCStatus(void *ctx, unsigned char *pkt)
             if (context->ibusModuleStatus.MID == 0 &&
                 context->ibusModuleStatus.GT == 0 &&
                 context->ibusModuleStatus.BMBT == 0 &&
-                context->ibusModuleStatus.VM == 0
+                context->ibusModuleStatus.VM == 0 &&
+                context->uiMode != CONFIG_UI_CD53
             ) {
                 // Fallback for vehicle UI Identification
                 // If no UI has been detected and we have been
@@ -760,10 +764,11 @@ void HandlerIBusCDCStatus(void *ctx, unsigned char *pkt)
                 LogInfo(LOG_SOURCE_SYSTEM, "Fallback to CD53 UI");
                 HandlerSwitchUI(context, CONFIG_UI_CD53);
             } else if (context->ibusModuleStatus.GT == 1 &&
-                       ConfigGetUIMode() == 0
+                context->gtStatus == HANDLER_GT_STATUS_UNCHECKED
             ) {
                 // Request the Navigation Identity
                 IBusCommandDIAGetIdentity(context->ibus, IBUS_DEVICE_GT);
+                context->gtStatus = HANDLER_GT_STATUS_CHECKED;
             }
         }
     } else if (requestedCommand == IBUS_CDC_CMD_STOP_PLAYING) {
@@ -1116,7 +1121,7 @@ void HandlerIBusIKEIgnitionStatus(void *ctx, unsigned char *pkt)
         ) {
             LogDebug(LOG_SOURCE_SYSTEM, "Handler: Ignition On");
             // Play a tone to wake up the WM8804 / PCM5122
-            BC127CommandTone(Context.bt, "V 0 N C6 L 4");
+            BC127CommandTone(context->bt, "V 0 N C6 L 4");
             // Enable Telephone On
             TEL_ON = 1;
             // Reset the metadata so we don't display the wrong data
@@ -1555,7 +1560,8 @@ void HandlerIBusLMRedundantData(void *ctx, unsigned char *pkt)
         if (context->ibusModuleStatus.MID == 0 &&
             context->ibusModuleStatus.GT == 0 &&
             context->ibusModuleStatus.BMBT == 0 &&
-            context->ibusModuleStatus.VM == 0
+            context->ibusModuleStatus.VM == 0 &&
+            context->uiMode != CONFIG_UI_CD53
         ) {
             LogInfo(LOG_SOURCE_SYSTEM, "Fallback to CD53");
             HandlerSwitchUI(context, CONFIG_UI_CD53);
