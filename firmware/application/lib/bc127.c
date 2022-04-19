@@ -1275,34 +1275,47 @@ void BC127Process(BC127_t *bt)
             // Always copy size of buffer minus one to make sure we're always
             // null terminated
             if (strcmp(msgBuf[2], "TITLE:") == 0) {
-                // Clear Metadata since we're receiving new data
-                BC127ClearMetadata(bt);
                 bt->metadataStatus = BC127_METADATA_STATUS_NEW;
                 char title[BC127_METADATA_MAX_SIZE] = {0};
                 UtilsNormalizeText(title, &msg[BC127_METADATA_TITLE_OFFSET], BC127_METADATA_MAX_SIZE);
-                strncpy(bt->title, title, BC127_METADATA_FIELD_SIZE);
+                if(strncmp(bt->title, title, BC127_METADATA_FIELD_SIZE) != 0) {
+                    bt->metaChanged = 1;
+                    // Clear Metadata since we're receiving new data
+                    BC127ClearMetadata(bt);
+                    strncpy(bt->title, title, BC127_METADATA_FIELD_SIZE);
+                };
             } else if (strcmp(msgBuf[2], "ARTIST:") == 0) {
                 char artist[BC127_METADATA_MAX_SIZE] = {0};
                 UtilsNormalizeText(artist, &msg[BC127_METADATA_ARTIST_OFFSET], BC127_METADATA_MAX_SIZE);
-                strncpy(bt->artist, artist, BC127_METADATA_FIELD_SIZE);
+                if(strncmp(bt->artist, artist, BC127_METADATA_FIELD_SIZE) != 0) {
+                    bt->metaChanged = 1;
+                    strncpy(bt->artist, artist, BC127_METADATA_FIELD_SIZE);
+                }
             } else {
                 if (strcmp(msgBuf[2], "ALBUM:") == 0) {
                     char album[BC127_METADATA_MAX_SIZE] = {0};
                     UtilsNormalizeText(album, &msg[BC127_METADATA_ALBUM_OFFSET], BC127_METADATA_MAX_SIZE);
-                    strncpy(bt->album, album, BC127_METADATA_FIELD_SIZE);
+                    if(strncmp(bt->album, album, BC127_METADATA_FIELD_SIZE) != 0) {
+                        bt->metaChanged = 1;
+                        strncpy(bt->album, album, BC127_METADATA_FIELD_SIZE);
+                    }
                 }
                 if (bt->metadataStatus == BC127_METADATA_STATUS_NEW) {
                     LogDebug(
                         LOG_SOURCE_BT, 
-                        "BT: title=%s,artist=%s,album=%s",
+                        "BT: changed:%i,title=%s,artist=%s,album=%s",
+                        bt->metaChanged,
                         bt->title,
                         bt->artist,
                         bt->album
                     );
-                    EventTriggerCallback(BC127Event_MetadataChange, 0);
                     // Setting this flag in either event prevents us from
                     // potentially spamming the BC127 with metadata requests
                     bt->metadataStatus = BC127_METADATA_STATUS_CUR;
+                    if (bt->metaChanged == 1) {
+                        bt->metaChanged = 0;
+                        EventTriggerCallback(BC127Event_MetadataChange, 0);
+                    }
                 }
             }
             bt->metadataTimestamp = TimerGetMillis();
