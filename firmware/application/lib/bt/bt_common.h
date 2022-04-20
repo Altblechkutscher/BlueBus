@@ -175,8 +175,8 @@ typedef struct BT_t {
     uint8_t type: 1;
     uint8_t connectable: 1;
     uint8_t discoverable: 1;
-    uint8_t metadataStatus: 1;
-    uint8_t playbackStatus: 1;
+    volatile uint8_t metadataStatus: 1;
+    volatile uint8_t playbackStatus: 1;
     uint8_t callStatus: 3;
     uint8_t scoStatus: 3;
     uint8_t powerState: 2;

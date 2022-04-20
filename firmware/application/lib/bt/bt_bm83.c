@@ -589,11 +589,15 @@ void BM83ProcessEventAVCSpecificRsp(BT_t *bt, uint8_t *data, uint16_t length)
                         bt->playbackStatus = BT_AVRCP_STATUS_PLAYING;
                         EventTriggerCallback(BT_EVENT_PLAYBACK_STATUS_CHANGE, 0);
                     }
+                    uint8_t updateData[2] = {updateType, status};
+                    EventTriggerCallback(BT_EVENT_AVRCP_PDU_CHANGE, updateData);
                 } else if (updateType == BM83_AVRCP_EVT_PLAYBACK_TRACK_CHANGED) {
-                    status = 0x00;
+                    uint8_t updateData[2] = {updateType, status};
+                    EventTriggerCallback(BT_EVENT_AVRCP_PDU_CHANGE, updateData);
+                } else if (updateType == BM83_AVRCP_EVT_ADDRESSED_PLAYER_CHANGED) {
+                    uint8_t updateData[2] = {updateType, 0x00};
+                    EventTriggerCallback(BT_EVENT_AVRCP_PDU_CHANGE, updateData);
                 }
-                uint8_t updateData[2] = {updateType, status};
-                EventTriggerCallback(BT_EVENT_AVRCP_PDU_CHANGE, updateData);
             }
             break;
         }

@@ -138,8 +138,8 @@ void CLIProcess()
                         0x23,
                         cli.bt->activeDevice.deviceId & 0xF, // Linked Database, the lower nibble
                         0x01,
-                        0x03,
-                        0x08
+                        0x04,
+                        0x30
                     };
                     BM83SendCommand(cli.bt, command, sizeof(command));
                 } else if (UtilsStricmp(msgBuf[1], "Q") == 0) {

@@ -514,8 +514,9 @@ void HandlerBTBM83AVRCPUpdates(void *ctx, uint8_t *data)
     HandlerContext_t *context = (HandlerContext_t *) ctx;
     uint8_t type = data[0];
     uint8_t status = data[1];
-    if (type == BM83_AVRCP_EVT_PLAYBACK_STATUS_CHANGED &&
-        status == BM83_AVRCP_DATA_PLAYBACK_STATUS_PLAYING
+    if ((type == BM83_AVRCP_EVT_PLAYBACK_STATUS_CHANGED &&
+        status == BM83_AVRCP_DATA_PLAYBACK_STATUS_PLAYING) ||
+        type == BM83_AVRCP_EVT_ADDRESSED_PLAYER_CHANGED
     ) {
         BM83CommandAVRCPRegisterNotification(
             context->bt,
@@ -820,7 +821,7 @@ void HandlerTimerBTBC127ScanDevices(void *ctx)
  * HandlerTimerBTBM83AVRCPRegisterStatusNotifier()
  *     Description:
  *         Register the track changed event 850ms or more after we get
- *         the event notification so we can pullt he latest metadata.
+ *         the event notification so we can pull the latest metadata.
  *         Doing it too quickly will result in inaccurate metadata and
  *         multiple interim responses.
  *     Params:

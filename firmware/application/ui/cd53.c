@@ -913,7 +913,6 @@ void CD53TimerDisplay(void *ctx)
                         // Array starts at 0, so subtract one from the length
                         textLength = (context->mainDisplay.length - 1) - context->mainDisplay.index;
                     }
-                    LogDebug(LOG_SOURCE_UI, "I:%d L:%d T:%d", context->mainDisplay.index, context->mainDisplay.length, textLength);
                     strncpy(
                         text,
                         &context->mainDisplay.text[context->mainDisplay.index],
