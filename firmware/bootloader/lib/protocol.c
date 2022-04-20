@@ -7,7 +7,7 @@
 #include "protocol.h"
 
 /**
- * ProtocolBC127Mode()
+ * ProtocolBTMode()
  *     Description:
  *         In order to allow the BC127 to be managed directly (including firmware
  *         upgrades), we set the switch to push UART data from the BC127 to the
@@ -19,13 +19,47 @@
  *     Returns:
  *         void
  */
-void ProtocolBC127Mode()
+void ProtocolBTMode()
 {
-    // Stop driving the TX and RX pins of the BC127
-    BC127_UART_RX_PIN_MODE = 1;
-    BC127_UART_TX_PIN_MODE = 1;
-    // Set the UART mode to BC127 after disabling the MCU UART
-    UART_SEL = UART_SEL_BT;
+    UARTDestroy(SYSTEM_UART_MODULE);
+    UART_t systemUart = UARTInit(
+        SYSTEM_UART_MODULE,
+        SYSTEM_UART_RX_RPIN,
+        SYSTEM_UART_TX_RPIN,
+        UART_BAUD_115200,
+        UART_PARITY_NONE
+    );
+    UART_t btUart = UARTInit(
+        BT_UART_MODULE,
+        BT_UART_RX_RPIN,
+        BT_UART_TX_RPIN,
+        UART_BAUD_115200,
+        UART_PARITY_NONE
+    );
+    ON_LED = 1;
+    while (1) {
+        UARTReadData(&systemUart);
+        UARTReadData(&btUart);
+        unsigned char data[UART_RX_QUEUE_SIZE] = {0};
+        uint16_t sysQueueSize = systemUart.rxQueueSize;
+        if (sysQueueSize > 0) {
+            uint16_t i = 0;
+            while (systemUart.rxQueueSize > 0) {
+                data[i] = UARTGetNextByte(&systemUart);
+                i++;
+            }
+            UARTSendData(&btUart, data, sysQueueSize);
+        }
+        uint16_t btQueueSize = btUart.rxQueueSize;
+        if (btQueueSize > 0) {
+            uint16_t i = 0;
+            while (btUart.rxQueueSize > 0) {
+                data[i] = UARTGetNextByte(&btUart);
+                i++;
+            }
+            UARTSendData(&systemUart, data, btQueueSize);
+        }
+    }
 }
 
 /**
@@ -106,9 +140,9 @@ uint8_t ProtocolFlashWrite(ProtocolPacket_t *packet)
  *         UART_t *uart - The UART struct to use for communication
  *         uint8_t *BOOT_MODE - The bootload mode flag
  *     Returns:
- *         ProtocolPacket_t
+ *         uint8_t Packet status
  */
-void ProtocolProcessMessage(
+uint8_t ProtocolProcessMessage(
     UART_t *uart,
     uint8_t *BOOT_MODE
 ) {
@@ -169,7 +203,7 @@ void ProtocolProcessMessage(
             );
             uint32_t now = TimerGetMillis();
             while (TimerGetMillis() - now < PROTOCOL_PACKET_WAIT_MS);
-            ProtocolBC127Mode();
+            ProtocolBTMode();
         } else if (packet.command == PROTOCOL_CMD_START_APP_REQUEST) {
             ProtocolSendPacket(
                 uart,
@@ -228,6 +262,7 @@ void ProtocolProcessMessage(
             0
         );
     }
+    return packet.status;
 }
 
 /**

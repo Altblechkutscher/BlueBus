@@ -96,9 +96,9 @@ void UARTDestroy(uint8_t uartModule) {
     uart->registers->uxsta = 0;
     // Pull down the RX and TX pins for the module
     switch (uartModule) {
-        case BC127_UART_MODULE:
-            BC127_UART_RX_PIN_MODE = 1;
-            BC127_UART_TX_PIN_MODE = 1;
+        case BT_UART_MODULE:
+            BT_UART_RX_PIN_MODE = 1;
+            BT_UART_TX_PIN_MODE = 1;
             break;
         case SYSTEM_UART_MODULE:
             SYSTEM_UART_RX_PIN_MODE = 1;
@@ -145,7 +145,7 @@ unsigned char UARTGetNextByte(UART_t *uart)
  *         Return the byte at the current index plus the given offset
  *     Params:
  *         UART_t *uart - The UART object
- *         uint8_t offset - The number to offset from the current index
+ *         uint16_t offset - The number to offset from the current index
  *     Returns:
  *         unsigned char
  */
@@ -191,6 +191,9 @@ void UARTReadData(UART_t *uart)
             uart->rxQueueSize++;
             uart->rxLastTimestamp = TimerGetMillis();
         }
+        if (uart->rxQueueSize >= UART_RX_QUEUE_SIZE) {
+            ON_LED = 0;
+        }
     }
 }
 
@@ -222,9 +225,9 @@ void UARTResetRxQueue(UART_t *uart)
  *     Returns:
  *         void
  */
-void UARTSendData(UART_t *uart, unsigned char *data, uint8_t length)
+void UARTSendData(UART_t *uart, unsigned char *data, uint16_t length)
 {
-    uint8_t i;
+    uint16_t i;
     for (i = 0; i < length; i++){
         uart->registers->uxtxreg = data[i];
         // Wait for the data to leave the tx buffer

@@ -16,7 +16,7 @@
 #define UART_BAUD_9600 103 
 #define UART_BAUD_115200 34
 #define UART_MODULES_COUNT 2
-#define UART_RX_QUEUE_SIZE 512
+#define UART_RX_QUEUE_SIZE 1024
 #define UART_RX_QUEUE_TIMEOUT 100
 #define UART_PARITY_NONE 0
 #define UART_PARITY_EVEN 1
@@ -47,5 +47,5 @@ unsigned char UARTGetNextByte(UART_t *);
 unsigned char UARTGetOffsetByte(UART_t *, uint16_t);
 void UARTReadData(UART_t *);
 void UARTResetRxQueue(UART_t *);
-void UARTSendData(UART_t *, unsigned char *, uint8_t);
+void UARTSendData(UART_t *, unsigned char *, uint16_t);
 #endif /* UART_H */
